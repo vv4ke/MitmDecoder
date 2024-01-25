@@ -1,2 +1,2 @@
-def signature(self):
+def signature(param):
     return

@@ -1,7 +1,7 @@
-def decrypt(self, cipher_text):
+def decrypt(cipher_text):
     return
 
 
-def encrypt(self, plain_text):
+def encrypt(plain_text):
     return
 
