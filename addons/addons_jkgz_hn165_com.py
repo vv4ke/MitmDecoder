@@ -6,17 +6,17 @@ Run as follows: mitmproxy -s anatomy.py
 import re
 
 from mitmproxy import ctx
-from modules.AES import decrypt, encrypt
+from modules.AES_jkgz_hn165_com import AES_encrypt, AES_decrypte
 from modules.MD5 import signature
 
 
 class Front_and_Mitm:
     def __init__(self):
-        self.keywords_request = ''
-        self.keywords_response = ''
+        self.keywords_request = 'params'
+        self.keywords_response = 'params'
 
-        self.regex_request = r''
-        self.regex_response = r''
+        self.regex_request = r'\w{32,}'
+        self.regex_response = r'\w{32,}'
 
     def request(self, flow):
         try:
@@ -31,7 +31,7 @@ class Front_and_Mitm:
             cipher_text = re.search(pattern=self.regex_request, string=flow.request.text).group()
 
             # step3：解密密文 =》 明文
-            plain_text = decrypt(cipher_text)
+            plain_text = AES_decrypte(cipher_text)
 
             # step4：替换密文成明文
             flow.request.text.replace(cipher_text, plain_text)
@@ -52,7 +52,7 @@ class Front_and_Mitm:
             plain_text = re.search(self.regex_response, flow.response.text).group()
 
             # step3：加密明文 =》 密文
-            cipher_text = encrypt(plain_text)
+            cipher_text = AES_encrypt(plain_text)
 
             # step4：重新签名？
             # signature = self.signature()
@@ -66,12 +66,11 @@ class Front_and_Mitm:
 
 class Mitm_and_Backend:
     def __init__(self):
-        self.keywords_request = ''
-        self.keywords_response = ''
+        self.keywords_request = 'params'
+        self.keywords_response = 'params'
 
-        self.regex_request = r''
-        self.regex_response = r''
-        self.regex_signature = r''
+        self.regex_request = r'\w{32,}'
+        self.regex_response = r'\w{32,}'
 
     def request(self, flow):
         try:
@@ -84,17 +83,15 @@ class Mitm_and_Backend:
                 ctx.log.info(f"pass {flow.request.pretty_url} without match PlainText")
                 return
             plain_text = re.search(self.regex_request, flow.request.text).group()
-            old_signature = re.search(self.regex_signature, flow.request.text).group()
 
             # step3：加密明文 =》密文
-            cipher_text = encrypt(plain_text)
+            cipher_text = AES_encrypt(plain_text)
 
             # step4：重新签名？
             new_signature = signature(param='')
 
             # step5：替换 明文成密文, 签名
             flow.request.text.replace(plain_text, cipher_text)
-            flow.request.text.replace(old_signature, new_signature)
 
         except Exception as e:
             ctx.log.info(e)
@@ -112,7 +109,7 @@ class Mitm_and_Backend:
             cipher_text = re.search(self.regex_response, flow.response.text).group()
 
             # step3：解密密文 =》 明文
-            plain_text = decrypt(cipher_text)
+            plain_text = AES_decrypte(cipher_text)
 
             # step5：替换密文成明文
             flow.response.text.replace(cipher_text, plain_text)
