@@ -49,50 +49,55 @@ def AES_encrypt(plain_text=''):
 
 class Front_and_Mitm:
     def __init__(self):
-        self.keywords_request = 'params'
-        self.keywords_response = 'params'
+        self.request_judge_keyword = 'params'
+        self.request_regex = r'\w{32,}'
+        self.mark_header = 'Vvak4'
 
-        self.regex_request = r'\w{32,}'
-        self.regex_response = r'\w{32,}'
+        self.response_template = '{"params":"%s"}'
 
     def request(self, flow):
         try:
             # step1：判断请求报文是否需要解密
-            if self.keywords_request not in flow.request.text:
+            request_body = flow.request.text
+            if self.request_judge_keyword not in request_body:
                 return
 
             # step2：匹配报文中的密文
-            if not re.search(self.regex_request, flow.request.text):
+            if not re.search(self.request_regex, request_body):
                 ctx.log.info(f"pass {flow.request.pretty_url} without match CipherText")
                 return
-            cipher_text = re.search(pattern=self.regex_request, string=flow.request.text).group()
+            cipher_text = re.search(pattern=self.request_regex, string=request_body).group()
 
             # step3：解密密文 =》 明文
             plain_text = AES_decrypte(cipher_text)
 
-            # step4：替换密文成明文
-            flow.request.text.replace(cipher_text, plain_text)
+            # step4：重构请求数据包body 替换成明文请求数据包
+            flow.request.text = plain_text
+            print(flow.request.text)
+
+            # step5：添加修改标识header
+            flow.request.headers[self.mark_header] = ''
 
         except Exception as e:
             ctx.log.info(e)
 
     def response(self, flow):
         try:
-            # step1：判断响应报文是否须加密
-            if self.keywords_response not in flow.response.text:
+            # step1：判断响应报文是否存在表示头，需要加密
+            if self.mark_header not in list(flow.response.headers):
                 return
 
-            # step2：匹配报文中的明文
-            if not re.search(self.regex_response, flow.response.text):
-                ctx.log.info(f"pass {flow.response.text} without match PlainText")
-                return
-            plain_text = re.search(self.regex_response, flow.response.text).group()
+            # step2：获取需加密的明文
+            plain_text = flow.response.text
 
             # step3：加密明文 =》 密文
             cipher_text = AES_encrypt(plain_text)
 
-            # step5：替换 明文=>密文, 更换signature
-            flow.response.text.replace(plain_text, cipher_text)
+            # step4：替换 明文=>密文, 更换signature
+            flow.response.text = self.response_template % cipher_text
+
+            # step5：删除标识头
+            flow.response.headers.pop(self.mark_header)
 
         except Exception as e:
             ctx.log.info(e)
@@ -100,29 +105,29 @@ class Front_and_Mitm:
 
 class Mitm_and_Backend:
     def __init__(self):
-        self.keywords_request = ''
-        self.keywords_response = 'params'
+        self.mark_header = 'Vvak4'
+        self.request_template = '{"params":"%s"}'
 
-        self.regex_request = r'\w{32,}'
         self.regex_response = r'\w{32,}'
+        self.response_judge_keyword = 'params'
 
     def request(self, flow):
         try:
             # step1：判断请求报文是否需要加密
-            if self.keywords_request not in flow.request.text:
+            if self.mark_header not in list(flow.request.headers):
                 return
 
             # step2：匹配报文中的 明文/签名
-            if not re.search(self.regex_request, flow.request.text):
-                ctx.log.info(f"pass {flow.request.pretty_url} without match PlainText")
-                return
-            plain_text = re.search(self.regex_request, flow.request.text).group()
+            plain_text = flow.request.text
 
             # step3：加密明文 =》密文
             cipher_text = AES_encrypt(plain_text)
 
-            # step5：替换 明文成密文, 签名
-            flow.request.text.replace(plain_text, cipher_text)
+            # step4：根据模板重构请求报文,替换成密文/签名
+            flow.request.text = self.request_template % cipher_text
+
+            # step5：删除标识头
+            flow.request.headers.pop(self.mark_header)
 
         except Exception as e:
             ctx.log.info(e)
@@ -130,20 +135,24 @@ class Mitm_and_Backend:
     def response(self, flow):
         try:
             # step1：判断响应报文是否须解密
-            if self.keywords_response not in flow.response.text:
+            response_body = flow.response.text
+            if self.response_judge_keyword not in response_body:
                 return
 
             # step2：匹配报文中的密文
-            if not re.search(self.regex_response, flow.response.text):
-                ctx.log.info(f"pass {flow.response.text} without match CipherText")
+            if not re.search(self.regex_response, response_body):
+                ctx.log.info(f"pass {response_body} without match CipherText")
                 return
-            cipher_text = re.search(self.regex_response, flow.response.text).group()
+            cipher_text = re.search(self.regex_response, response_body).group()
 
             # step3：解密密文 =》 明文
             plain_text = AES_decrypte(cipher_text)
 
-            # step5：替换密文成明文
-            flow.response.text.replace(cipher_text, plain_text)
+            # step4：重构响应数据包，替换密文成明文
+            flow.response.text = plain_text
+
+            # step5：添加修改标识header
+            flow.response.headers[self.mark_header] = ''
 
         except Exception as e:
             ctx.log.info(e)
