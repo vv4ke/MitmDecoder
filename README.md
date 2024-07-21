@@ -63,6 +63,13 @@ mitmdump.exe -s .\addons_Burp2Backend.py --listen-port 8082 -k
 
 MitmDecoder采用Apache License 2.0许可证
 
+## 项目参考
+
+https://mitmproxy.org/#mitmdump
+https://github.com/mitmproxy/mitmproxy
+https://ptorch.com/docs/10/mitmproxy_introduction
+
+
 ## 最后的话
 
 设计 MitmDecoder 的初衷就是为了便于测试，减低门槛促进内卷（bushi），发现更多隐藏在密文背后的安全问题。
